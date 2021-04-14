@@ -80,6 +80,60 @@ split_path <- function(path) {
   return(c(basename(path), split_path(dirname(path))))
 }
 
+test.directory_structure <- function(file_path, model.name, ignore, file_results) {
+  mname.f <- file_results$mname.f
+  climate.f <- file_results$climate.f
+  warnings <- file_results$warnings
+  errors <- file_results$errors
+
+  dir_path <- dirname(normalizePath(file_path))
+
+  # Get directory structure
+  # AgMIP.output/<modelname>/phase3b/<climate_forcing>/<climate_scenario>/<crop>
+  dir_bits <- split_path(dir_path)
+  dir_bit_crop <- dir_bits[1]
+  dir_bit_scen <- dir_bits[2]
+  dir_bit_gcm <- dir_bits[3]
+  dir_bit_phase <- dir_bits[4]
+  dir_bit_model <- dir_bits[5]
+
+  # Check that directory structure has correct value for <modelname>
+  if (is.na(dir_bit_model)) {
+    mname.f <- paste(mname.f, "  => WARNING: Failed to find <modelname> in directory structure\n")
+  }
+  else if (dir_bit_model != tolower(model.name)) {
+    if (tolower(dir_bit_model) == tolower(model.name)) {
+      # model name in directory should not be converted to all lowercase, but can be a mixed bag
+      # mname.f <- paste(mname.f, "  => WARNING: <modelname> in directory structure should be all lowercase\n")
+    } else {
+      mname.f <- paste0(mname.f, "  => WARNING: directory that should be '", model.name,
+                        "' is instead '", dir_bit_model, "'\n")
+      warnings <- warnings + 1
+    }
+  }
+
+  # Check that directory structure has correct value for <climate_forcing>
+  if (is.na(dir_bit_gcm)) {
+    climate.f <- paste(climate.f, "  => WARNING: Failed to find <climate_forcing> in directory structure\n")
+  }
+  else if (dir_bit_gcm != tolower(bit_gcm)) {
+    if (tolower(dir_bit_gcm) == tolower(bit_gcm)) {
+      climate.f <- paste0(climate.f, "   => WARNING: <climate_forcing> in directory structure should be all lowercase\n")
+    } else {
+      climate.f <- paste0(climate.f, "   => WARNING: directory that should be '", bit_gcm,
+                        "' is instead '", dir_bit_gcm, "'\n")
+    }
+    warnings <- warnings + 1
+  }
+
+
+  file_results$mname.f <- mname.f
+  file_results$climate.f <- climate.f
+  file_results$warnings <- warnings
+  file_results$errors <- errors
+
+  return(file_results)
+}
 
 test.filename <- function(file_path, model.name, ignore){
   # <modelname>_<climate_forcing>_<bias_adjustment>_<climate_scenario>_<soc_scenario>_<sens_scenario>_<variable>-<crop>-<irrigation>_<region>_<timestep>_<start_year>_<end_year>.nc
@@ -131,15 +185,7 @@ test.filename <- function(file_path, model.name, ignore){
     bit_region <- bits[8]
     bit_timestep <- bits[9]
     
-    # Get directory structure
-    # AgMIP.output/<modelname>/phase3b/<climate_forcing>/<climate_scenario>/<crop>
-    dir_bits <- split_path(dir_path)
-    dir_bit_crop <- dir_bits[1]
-    dir_bit_scen <- dir_bits[2]
-    dir_bit_gcm <- dir_bits[3]
-    dir_bit_phase <- dir_bits[4]
-    dir_bit_model <- dir_bits[5]
-    
+
     # Check that filename has correct value for <modelname>
     if (is.na(bit_model)) {
       mname.f <- "  => WARNING: Failed to parse <modelname> from filename\n"
@@ -156,21 +202,6 @@ test.filename <- function(file_path, model.name, ignore){
       warnings <- warnings + 1
     }
     
-    # Check that directory structure has correct value for <modelname>
-    if (is.na(dir_bit_model)) {
-      mname.f <- paste(mname.f, "  => WARNING: Failed to find <modelname> in directory structure\n")
-    }
-    else if (dir_bit_model != tolower(model.name)) {
-      if (tolower(dir_bit_model) == tolower(model.name)) {
-        # model name in directory should not be converted to all lowercase, but can be a mixed bag
-        # mname.f <- paste(mname.f, "  => WARNING: <modelname> in directory structure should be all lowercase\n")
-      } else {
-        mname.f <- paste0(mname.f, "  => WARNING: directory that should be '", model.name, 
-                         "' is instead '", dir_bit_model, "'\n")
-        warnings <- warnings + 1
-      }
-    }
-    
     # Check that filename has correct value for <climate_forcing>
     if (is.na(bit_gcm)) {
       climate.f <- "  => ERROR: Failed to parse <climate_forcing> from filename\n"
@@ -184,20 +215,6 @@ test.filename <- function(file_path, model.name, ignore){
         climate.f <- paste("  => ERROR:", bit_gcm, "not in set of GCMs\n")
         errors <- errors + 1
       }
-    }
-    
-    # Check that directory structure has correct value for <climate_forcing>
-    if (is.na(dir_bit_gcm)) {
-      climate.f <- paste(climate.f, "  => WARNING: Failed to find <climate_forcing> in directory structure\n")
-    }
-    else if (dir_bit_gcm != tolower(bit_gcm)) {
-      if (tolower(dir_bit_gcm) == tolower(bit_gcm)) {
-        climate.f <- paste0(climate.f, "   => WARNING: <climate_forcing> in directory structure should be all lowercase\n")
-      } else {
-        climate.f <- paste0(climate.f, "   => WARNING: directory that should be '", bit_gcm, 
-                          "' is instead '", dir_bit_gcm, "'\n")
-      }
-      warnings <- warnings + 1
     }
     
     # Check that bias adjustment string in the filename is correct
@@ -487,34 +504,34 @@ test.file <- function(fn, landseamask){
       } else {
         since_units <- "growing seasons"
       }
-      if(nc$dim$time$units!=paste0(since_units," since 1661-01-01, 00:00:00")){
-        if(nc$dim$time$units==paste0(since_units," since 1661-01-01 00:00:00")){
-          dimdef.f <- paste0(dimdef.f,"  => WARNING: time units incorrectly defined as '",nc$dim$time$units,"' instead of '",
-                             since_units," since 1661-01-01, 00:00:00' (commma missing)\n")
-          warnings <- warnings + 1
-        } else {
-          dimdef.f <- paste0(dimdef.f,"  => ERROR: time units incorrectly defined as '",nc$dim$time$units,"' instead of '",
-                             since_units," since 1661-01-01, 00:00:00'\n")
+      fn_years <- tail(unlist(strsplit(unlist(strsplit(basename(fn), ".", fixed=TRUE))[1], "_")), 2)
+      if(!identical(c(1,2), as.numeric(grep("[0-9][0-9][0-9][0-9]", fn_years)))) {
+        timespan.f <- paste0(timespan.f,"  => ERROR: unable to parse time span from filename for checking size of time dimension\n")
+        errors <- errors + 1
+      } else {
+        y1 <- as.numeric(fn_years[1])
+        yN <- as.numeric(fn_years[2])
+        if(nc$dim$time$units!=paste0(since_units," since ",fn_years[1], "-01-01, 00:00:00")){
+          if(nc$dim$time$units==paste0(since_units," since ", fn_years[1], "-01-01 00:00:00")){
+            dimdef.f <- paste0(dimdef.f,"  => WARNING: time units incorrectly defined as '",nc$dim$time$units,"' instead of '",
+                              since_units," since ",fn_years[1],"-01-01, 00:00:00' (commma missing)\n")
+            warnings <- warnings + 1
+          } else {
+            dimdef.f <- paste0(dimdef.f,"  => ERROR: time units incorrectly defined as '",nc$dim$time$units,"' instead of '",
+                              since_units," since ", fn_years[1],"-01-01, 00:00:00'\n")
+            errors <- errors + 1
+          }
+        }
+        Ntimesteps_target <- yN - y1 + 1
+        if (unlist(strsplit(var, "-"))[1] == "soilmoist1m") {
+          Ntimesteps_target = Ntimesteps_target * 12
+        }
+        Ntimesteps <- dim(ncvar_get(nc,"time"))
+        if (Ntimesteps != Ntimesteps_target) {
+          timespan.f <- paste0(timespan.f,"  => ERROR: time dimension has size ", Ntimesteps, " instead of ", Ntimesteps_target,
+                              " expected based on filename\n")
           errors <- errors + 1
         }
-      }
-    }
-    fn_years <- tail(unlist(strsplit(unlist(strsplit(basename(fn), ".", fixed=TRUE))[1], "_")), 2)
-    if (!identical(c(1,2), as.numeric(grep("[0-9][0-9][0-9][0-9]", fn_years)))) {
-      timespan.f <- paste0(timespan.f,"  => ERROR: unable to parse time span from filename for checking size of time dimension\n")
-      errors <- errors + 1
-    } else {
-      y1 <- as.numeric(fn_years[1])
-      yN <- as.numeric(fn_years[2])
-      Ntimesteps_target <- yN - y1 + 1
-      if (unlist(strsplit(var, "-"))[1] == "soilmoist1m") {
-        Ntimesteps_target = Ntimesteps_target * 12
-      }
-      Ntimesteps <- dim(ncvar_get(nc,"time"))
-      if (Ntimesteps != Ntimesteps_target) {
-        timespan.f <- paste0(timespan.f,"  => ERROR: time dimension has size ", Ntimesteps, " instead of ", Ntimesteps_target, 
-                             " expected based on filename\n")
-        errors <- errors + 1
       }
     }
 
@@ -614,7 +631,7 @@ setup_reports <- function(report_dir, report_dir_web, save2file, thisdate, model
 }
 
 
-do_test.filenames <- function(files, reportnames, save2file, thisdate, model.name, ignore) {
+do_test.filenames <- function(files, reportnames, save2file, thisdate, model.name, ignore, skip_directory = FALSE) {
   
   fname.issues <- list()
   
@@ -642,6 +659,7 @@ do_test.filenames <- function(files, reportnames, save2file, thisdate, model.nam
                       "wrong bias adjustment"=NULL)
   for(fn in 1:length(files)){
     test <- test.filename(files[fn], model.name, ignore)
+    if(!skip_directory) test <- test.directory_structure(files[fn], model.name, ignore, test)
     warnings <- warnings + test$warnings
     errors <- errors + test$errors
     if(!is.null(test$ending.f)) error.types[[1]] <- c(error.types[[1]],fn)
