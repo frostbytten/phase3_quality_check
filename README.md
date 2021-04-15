@@ -14,7 +14,7 @@ The following variables need to be specified in the `GGCMI_phase3_check_output_f
 * **path_Output** directory to place the output of this tool into (reporting)
 * **landseamask_file** LandSea Mask NetCDF file
 * **cropcalendar_dir** Directory containing the cropcalendar NetCDF files
-* **skip_directory_structure** __TRUE__ or __FALSE__ to skip validating the directory structure of the data
+* **skip_directory_structure** skip validating the directory structure of the data (`TRUE` or `FALSE`)
 * **vars** vector of variables to validate (use GGCMI codes)
 * **model.name** string to validate the model name
 * **crops** vector of crops to validate (use GGCMI codes)
