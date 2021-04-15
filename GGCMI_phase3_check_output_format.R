@@ -13,6 +13,7 @@ cropcalendar_dir <- file.path(path_Data, "crop_calendar")
 report_dir <- "" # Set to "" to use directory above working directory (top-level directory of outputs)
 report_dir_web <- "" # Set to "" to ignore
 ggcmi_function_file <- "./GGCMI_phase3_check_functions.r"
+skip_directory_structure <- TRUE
 
 # settings and definitions ####
 # model.name <- "ISAM"
@@ -65,7 +66,7 @@ reportnames <- setup_reports(report_dir, report_dir_web, save2file, thisdate, mo
 # Test filenames
 #######################
 files <- dir(recursive=TRUE, include.dirs=FALSE)
-do_test.filenames(files, reportnames, save2file, thisdate, model.name, ignore, TRUE)
+do_test.filenames(files, reportnames, save2file, thisdate, model.name, ignore, skip_directory_structure)
 
 
 ##############################################
